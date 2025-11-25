@@ -19,9 +19,18 @@ async function getParsedBody(req) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+ const allowedOrigins = [
+  'http://localhost:5173',
+  'https://admin-update-sigma.vercel.app',
+  'https://admin-login-backend.vercel.app'
+];
+const origin = req.headers.origin;
+if (allowedOrigins.includes(origin)) {
+  res.setHeader('Access-Control-Allow-Origin', origin);
+}
+res.setHeader('Access-Control-Allow-Methods', 'POST,GET,OPTIONS,DELETE');
+res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
     res.statusCode = 200;
     res.end();
@@ -84,6 +93,29 @@ export default async function handler(req, res) {
     res.statusCode = 200;
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify(usersList));
+    await client.close();
+    return;
+  }
+
+  // DELETE: remove user by email
+  if (req.method === 'DELETE') {
+    const data = await getParsedBody(req);
+    const email = data?.email;
+    if (!email) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Email required' }));
+      await client.close();
+      return;
+    }
+    const result = await users.deleteOne({ email });
+    if (result.deletedCount === 0) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'User not found' }));
+      await client.close();
+      return;
+    }
+    res.statusCode = 200;
+    res.end(JSON.stringify({ ok: true }));
     await client.close();
     return;
   }
